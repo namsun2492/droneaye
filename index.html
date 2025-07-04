@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drone Show </title>
+  <style>
+    html, body { margin:0; padding:0; overflow:hidden; background:black; width:100%; height:100%; }
+    canvas { position:absolute; top:0; left:0; display:block; }
+    #footer {
+      position:fixed; right:6px; bottom:4px;
+      font-family:Arial, sans-serif; font-size:2vw; color:#00ffee;
+      text-shadow:0 0 1px #00ffee,0 0 3px #00ffee,0 0 6px #00ffff;
+      pointer-events:none; user-select:none;
+    }
+    #popup {
+      position:fixed; bottom:50%; left:50%; transform:translate(-50%, 50%);
+      font-size:22px; font-family:'Segoe UI',sans-serif;
+      background:rgba(255,182,193,0.2); color:#ff99cc;
+      border:1px solid #ff99cc; padding:10px 18px;
+      border-radius:12px; cursor:pointer;
+      animation:glow 3s ease-in-out infinite;
+      z-index:100;
+    }
+    @keyframes glow {
+      0%,100% { box-shadow:0 0 8px #ff99cc; opacity:1; }
+      50% { box-shadow:0 0 16px #ff66cc; opacity:0.6; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="matrix" style="display:none;"></canvas>
+  <canvas id="canvas" style="display:none;"></canvas>
+  <div id="footer" style="display:none;">Nam Sun ♥ Ngọc Thuận</div>
+  <div id="popup">Yêu em 💖</div>
+  <audio id="bgmusic" preload="auto" loop>
+    <source src="https://files.catbox.moe/l3ngqe.mp3" type="audio/mp3">
+  </audio>
+
+  <script>
+    const popup = document.getElementById("popup");
+    const canvas = document.getElementById("canvas"), ctx = canvas.getContext("2d");
+    const matrixCanvas = document.getElementById("matrix"), mtx = matrixCanvas.getContext("2d");
+    const footer = document.getElementById("footer");
+    const music = document.getElementById("bgmusic");
+
+    function resizeCanvas() {
+      canvas.width = matrixCanvas.width = window.innerWidth;
+      canvas.height = matrixCanvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    let drones = [], textQueue = ["Ngọc Thuận", "Anh yêu em"], currentTextIndex = 0;
+
+    class Drone {
+      constructor(x,y,color="#ff6699") {
+        this.x=Math.random()*canvas.width; this.y=canvas.height+Math.random()*300;
+        this.tx=x; this.ty=y; this.color=color;
+        this.size=1.5+Math.random(); this.speed=0.02+Math.random()*0.015;
+        this.state="form"; this.vx=(Math.random()-0.5)*2.5; this.vy=(Math.random()-0.5)*2.5;
+      }
+      update() {
+        if(this.state==="form"){
+          this.x+=(this.tx-this.x)*this.speed;
+          this.y+=(this.ty-this.y)*this.speed;
+        } else { this.x+=this.vx; this.y+=this.vy; }
+      }
+      draw(){ ctx.beginPath(); ctx.arc(this.x,this.y,this.size,0,2*Math.PI); ctx.fillStyle=this.color; ctx.fill(); }
+    }
+
+    function getTextPositions(text, fontSize = canvas.width < 500 ? 60 : 100) {
+      const off = document.createElement("canvas"), octx = off.getContext("2d");
+      off.width = canvas.width; off.height = canvas.height;
+      octx.fillStyle = "#ff6699";
+      octx.font = `bold ${fontSize}px Arial`;
+      octx.textAlign="center"; octx.textBaseline="middle";
+      octx.fillText(text, canvas.width/2, canvas.height/2);
+      const img = octx.getImageData(0,0,canvas.width,canvas.height).data;
+      const pos = [];
+      for(let y=0;y<canvas.height;y+=6)
+        for(let x=0;x<canvas.width;x+=6)
+          if(img[(y*canvas.width+x)*4+3]>128) pos.push({x,y});
+      return pos;
+    }
+
+    function setDronesToText(text) {
+      drones = getTextPositions(text).map(p => new Drone(p.x,p.y));
+    }
+
+    function disperseDrones(cb){
+      drones.forEach(d => d.state="disperse");
+      setTimeout(cb, 4000); // thời gian tan biến chậm hơn
+    }
+
+    function startHeartEffect(){
+      const cx=canvas.width/2, cy=canvas.height/2, particles=[];
+      const heartFn = (t,scale=10)=>{ return {
+        x:cx+16*Math.pow(Math.sin(t),3)*scale,
+        y:cy-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))*scale
+      }};
+      for(let i=0;i<1000;i++){
+        const t=Math.random()*2*Math.PI;
+        const p=heartFn(t,9+Math.random()*1.5);
+        particles.push({x:p.x,y:p.y,dx:(Math.random()-0.5)*0.3,dy:(Math.random()-0.5)*0.3,alpha:Math.random()*0.8+0.2,size:Math.random()*1.2+0.8});
+      }
+      (function anim(){
+        ctx.fillStyle='rgba(0,0,0,0.05)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        particles.forEach(p=>{
+          ctx.beginPath(); ctx.fillStyle=`rgba(255,100,150,${p.alpha})`;
+          ctx.arc(p.x,p.y,p.size,0,2*Math.PI); ctx.fill();
+          p.x+=p.dx; p.y+=p.dy; p.alpha-=0.0015;
+          if(p.alpha<=0){
+            const t=Math.random()*2*Math.PI, np=heartFn(t,9+Math.random()*1.5);
+            Object.assign(p,{x:np.x,y:np.y,alpha:Math.random()*0.8+0.2,size:Math.random()*1.2+0.8,
+              dx:(Math.random()-0.5)*0.3,dy:(Math.random()-0.5)*0.3});
+          }
+        });
+        requestAnimationFrame(anim);
+      })();
+    }
+
+    let matrixCols, matrixDrops;
+    const matrixText = ["Anh yêu em"];
+
+    function startMatrix(){
+      matrixCanvas.style.display = "block";
+      matrixCols = Math.floor(canvas.width / 14);
+      matrixDrops = Array(matrixCols).fill(1);
+      setInterval(() => {
+        mtx.fillStyle = "rgba(0,0,0,0.1)";
+        mtx.fillRect(0,0,matrixCanvas.width,matrixCanvas.height);
+        mtx.fillStyle = "rgba(0,255,204,0.3)";
+        mtx.font = "14px monospace";
+        for(let i=0;i<matrixCols;i++){
+          const char = matrixText[0].charAt(Math.floor(Math.random()*matrixText[0].length));
+          mtx.fillText(char, i*14, matrixDrops[i]*14);
+          if(matrixDrops[i]*14 > canvas.height && Math.random()>0.99) matrixDrops[i] = 0;
+          matrixDrops[i]++;
+        }
+      }, 80);
+    }
+
+    function nextPhase(){
+      if(currentTextIndex < textQueue.length){
+        setDronesToText(textQueue[currentTextIndex]);
+        currentTextIndex++;
+        setTimeout(() => {
+          // Dừng lại lâu hơn rồi mới tan
+          setTimeout(() => disperseDrones(nextPhase), 3000); 
+        }, 3000); // chờ hiện chữ đủ lâu
+      } else {
+        startHeartEffect();
+        setTimeout(() => startMatrix(), 4000);
+      }
+    }
+
+    function animate(){
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drones.forEach(d => { d.update(); d.draw(); });
+      requestAnimationFrame(animate);
+    }
+
+    popup.onclick = () => {
+      music.play();
+      popup.style.display = "none";
+      canvas.style.display = "block";
+      footer.style.display = "block";
+      nextPhase();
+      animate();
+    };
+  </script>
+</body>
+</html>
